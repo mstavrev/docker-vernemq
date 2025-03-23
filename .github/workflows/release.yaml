@@ -1,0 +1,31 @@
+name: Release
+
+on:
+  watch:
+    types: [started]
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    if: github.actor == 'mstavrev'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PERSONAL_TOKEN }}
+
+      - name: Build and publish VerneMQ image
+        shell: bash
+        run: |
+          make release

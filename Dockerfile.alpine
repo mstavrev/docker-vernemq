@@ -1,4 +1,16 @@
+ARG vernemq_version=latest
+
+# Build container - 
+FROM erlang:25.3-alpine AS builder
+ARG vernemq_version
+
+RUN apk add --no-cache snappy-dev openssl-dev alpine-sdk bsd-compat-headers bash git
+RUN git clone --depth 1 --branch ${vernemq_version} https://github.com/vernemq/vernemq.git builder
+WORKDIR /builder
+RUN make rel
+
 FROM alpine:3.20.0
+ARG vernemq_version
 
 RUN apk --no-cache --update --available upgrade && \
     apk add --no-cache ncurses-libs libstdc++ jq curl bash snappy-dev nano && \
@@ -10,20 +22,18 @@ RUN apk --no-cache --update --available upgrade && \
 ENV DOCKER_VERNEMQ_KUBERNETES_LABEL_SELECTOR="app=vernemq" \
     DOCKER_VERNEMQ_LOG__CONSOLE=console \
     PATH="/vernemq/bin:$PATH" \
-    VERNEMQ_VERSION="2.0.1"
+    VERNEMQ_VERSION="${vernemq_version}"
 WORKDIR /vernemq
 
 COPY --chown=10000:10000 bin/vernemq.sh /usr/sbin/start_vernemq
 COPY --chown=10000:10000 bin/join_cluster.sh /usr/sbin/join_cluster
 COPY --chown=10000:10000 files/vm.args /vernemq/etc/vm.args
 
-# Note that the following copies a binary package under EULA (requiring a paid subscription).
-RUN ARCH=$(uname -m | sed -e 's/aarch64/arm64/') && \
-    echo $ARCH && \
-    curl -L https://github.com/vernemq/vernemq/releases/download/$VERNEMQ_VERSION/vernemq-$VERNEMQ_VERSION.alpine.$ARCH.tar.gz -o /tmp/vernemq-$VERNEMQ_VERSION.alpine.tar.gz && \
-    tar -xzvf /tmp/vernemq-$VERNEMQ_VERSION.alpine.tar.gz && \
-    rm /tmp/vernemq-$VERNEMQ_VERSION.alpine.tar.gz && \
-    chown -R 10000:10000 /vernemq && \
+# Copy binaries of VerneMQ compiled under the builder
+RUN mkdir /vernemq
+COPY --from=builder /builder/_build/default/rel/vernemq/. /vernemq
+
+RUN chown -R 10000:10000 /vernemq && \
     ln -s /vernemq/etc /etc/vernemq && \
     ln -s /vernemq/data /var/lib/vernemq && \
     ln -s /vernemq/log /var/log/vernemq
