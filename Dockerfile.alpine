@@ -30,7 +30,6 @@ COPY --chown=10000:10000 bin/join_cluster.sh /usr/sbin/join_cluster
 COPY --chown=10000:10000 files/vm.args /vernemq/etc/vm.args
 
 # Copy binaries of VerneMQ compiled under the builder
-RUN mkdir /vernemq
 COPY --from=builder /builder/_build/default/rel/vernemq/. /vernemq
 
 RUN chown -R 10000:10000 /vernemq && \
