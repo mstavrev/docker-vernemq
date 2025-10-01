@@ -20,6 +20,9 @@ spec:
   podManagementPolicy: {{ .Values.statefulset.podManagementPolicy }}
   updateStrategy:
     type: {{ .Values.statefulset.updateStrategy }}
+    {{- with .Values.statefulset.rollingUpdate }}
+    rollingUpdate: {{- toYaml . | nindent 6 }}
+    {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "vernemq.name" . }}
@@ -32,9 +35,10 @@ spec:
       {{- if .Values.statefulset.podLabels }}
         {{ toYaml .Values.statefulset.podLabels | nindent 8 }}
       {{- end }}
-      {{- with .Values.statefulset.podAnnotations }}
       annotations:
-        {{ toYaml . | nindent 8 }}
+        checksum/acl: {{ include (print $.Template.BasePath "/configmap-acl.yaml") . | sha256sum }}
+      {{- if .Values.statefulset.podAnnotations }}
+        {{ toYaml .Values.statefulset.podAnnotations | nindent 8 }}
       {{- end }}
     spec:
       serviceAccountName: {{ include "vernemq.serviceAccountName" . }}
@@ -67,7 +71,7 @@ spec:
             {{- if .Values.headlessService.customPorts }}
             {{- range .Values.headlessService.customPorts }}
             - containerPort: {{ .port }}
-            name: {{ .name }}
+              name: {{ .name }}
             {{- end }}
             {{- end }}
             {{- range tuple 9100 9101 9102 9103 9104 9105 9106 9107 9108 9109 }}
@@ -86,7 +90,6 @@ spec:
               value: "1"
             - name: DOCKER_VERNEMQ_KUBERNETES_LABEL_SELECTOR
               value: "app.kubernetes.io/name={{ include "vernemq.name" . }},app.kubernetes.io/instance={{ .Release.Name }}"
-            {{- /* Add this localhost listener in order to get the port forwarding working */}}
             - name: DOCKER_VERNEMQ_LISTENER__TCP__LOCALHOST
               value: "127.0.0.1:1883"
             {{- if .Values.service.mqtts.enabled }}
@@ -123,10 +126,18 @@ spec:
             successThreshold: {{ .Values.statefulset.livenessProbe.successThreshold }}
             failureThreshold: {{ .Values.statefulset.livenessProbe.failureThreshold }}
           readinessProbe:
+          {{- if .Values.statefulset.readinessProbe.exec }}
+            exec:
+              command: {{ toYaml .Values.statefulset.readinessProbe.exec.command | nindent 14 }}
+          {{- else if .Values.statefulset.readinessProbe.tcpSocket }}
+            tcpSocket:
+              port: {{ .Values.statefulset.readinessProbe.tcpSocket.port }}
+          {{- else }}
             httpGet:
-              path: /health/ping
-              port: api
-              scheme: HTTP
+              path: {{ .Values.statefulset.readinessProbe.httpGet.path }}
+              port: {{ .Values.statefulset.readinessProbe.httpGet.port }}
+              scheme: {{ .Values.statefulset.readinessProbe.httpGet.scheme }}
+          {{- end }}
             initialDelaySeconds: {{ .Values.statefulset.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.statefulset.readinessProbe.periodSeconds }}
             timeoutSeconds: {{ .Values.statefulset.readinessProbe.timeoutSeconds }}
@@ -151,10 +162,10 @@ spec:
               mountPath: /vernemq/etc/vmq.acl
               subPath: vernemq-acl
               readOnly: true
-          {{- end }}
-          {{- if .Values.extraVolumeMounts }}
-            {{- toYaml .Values.extraVolumeMounts | nindent 12 }}
-          {{- end }}
+            {{- end }}
+            {{- if .Values.extraVolumeMounts }}
+            {{ toYaml .Values.extraVolumeMounts | nindent 12 }}
+            {{- end }}
           {{- with .Values.statefulset.lifecycle }}
           lifecycle:
             {{- toYaml . | nindent 12 }}
@@ -163,11 +174,11 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-    {{- with .Values.nodeSelector }}
+      {{- with .Values.nodeSelector }}
       nodeSelector:
         {{ toYaml . | nindent 8 }}
-    {{- end }}
-    {{- if eq .Values.podAntiAffinity "hard" }}
+      {{- end }}
+      {{- if eq .Values.podAntiAffinity "hard" }}
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -178,7 +189,7 @@ spec:
                     operator: In
                     values:
                       - {{ include "vernemq.name" . }}
-    {{- else if eq .Values.podAntiAffinity "soft" }}
+      {{- else if eq .Values.podAntiAffinity "soft" }}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -191,11 +202,11 @@ spec:
                       operator: In
                       values:
                         - {{ include "vernemq.name" . }}
-    {{- end }}
-    {{- with .Values.tolerations }}
+      {{- end }}
+      {{- with .Values.tolerations }}
       tolerations:
         {{ toYaml . | nindent 8 }}
-    {{- end }}
+      {{- end }}
       securityContext:
         {{ toYaml .Values.securityContext | nindent 8 }}
       volumes:
@@ -215,10 +226,14 @@ spec:
         - name: vernemq-acl
           configMap:
             name: {{ include "vernemq.fullname" . }}-acl
-      {{- end }}
-      {{- if .Values.extraVolumes }}
-        {{- toYaml .Values.extraVolumes | nindent 8 }}
-      {{- end }}
+        {{- end }}
+        {{- if not .Values.persistentVolume.enabled }}
+        - name: data
+        {{- end }}
+        {{- if .Values.extraVolumes }}
+        {{ toYaml .Values.extraVolumes | nindent 8 }}
+        {{- end }}
+
 {{- if .Values.persistentVolume.enabled }}
   volumeClaimTemplates:
     - apiVersion: v1
@@ -244,6 +259,4 @@ spec:
         storageClassName: "{{ .Values.persistentVolume.storageClass }}"
       {{- end }}
       {{- end }}
-{{- else }}
-        - name: data
 {{- end }}

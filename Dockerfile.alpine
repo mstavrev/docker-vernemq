@@ -9,7 +9,7 @@ RUN git clone --depth 1 --branch ${vernemq_version} https://github.com/vernemq/v
 WORKDIR /builder
 RUN make rel
 
-FROM alpine:3.20.0
+FROM alpine:3.22.1
 ARG vernemq_version
 
 RUN apk --no-cache --update --available upgrade && \

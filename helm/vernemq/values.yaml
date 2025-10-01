@@ -6,7 +6,7 @@ replicaCount: 1
 
 image:
   repository: vernemq/vernemq
-  tag: 2.0.1-alpine
+  tag: 2.1.1-alpine
 
   pullPolicy: IfNotPresent
 
@@ -197,6 +197,9 @@ statefulset:
   ## Statefulsets rolling update update strategy
   ## Ref: https://kubernetes.io/docs/tutorials/stateful-application/basic-stateful-set/#rolling-update
   updateStrategy: RollingUpdate
+  ## If the strategy is set to RollingUpdate, parameterize the way pods are restarted
+  ## Ref: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#rollingupdatestatefulsetstrategy-v1-apps
+  rollingUpdate: {}
   ## Configure how much time VerneMQ takes to move offline queues to other nodes
   ## Ref: https://vernemq.com/docs/clustering/#detailed-cluster-leave-case-a-make-a-live-node-leave
   terminationGracePeriodSeconds: 60
@@ -209,6 +212,10 @@ statefulset:
     successThreshold: 1
     failureThreshold: 3
   readinessProbe:
+    httpGet:
+      path: /health/ping
+      port: api
+      scheme: HTTP
     initialDelaySeconds: 90
     periodSeconds: 10
     timeoutSeconds: 5
