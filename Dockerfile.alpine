@@ -1,7 +1,7 @@
 ARG vernemq_version=latest
 
 # Build container - 
-FROM erlang:25.3-alpine AS builder
+FROM erlang:28-alpine AS builder
 ARG vernemq_version
 
 RUN apk add --no-cache snappy-dev openssl-dev alpine-sdk bsd-compat-headers bash git
@@ -9,7 +9,7 @@ RUN git clone --depth 1 --branch ${vernemq_version} https://github.com/vernemq/v
 WORKDIR /builder
 RUN make rel
 
-FROM alpine:3.22.1
+FROM dhi.io/alpine-base:3.24-dev
 ARG vernemq_version
 
 RUN apk --no-cache --update --available upgrade && \
@@ -33,10 +33,10 @@ COPY --chown=10000:10000 files/vm.args /vernemq/etc/vm.args
 COPY --from=builder /builder/_build/default/rel/vernemq/. /vernemq
 
 RUN chown -R 10000:10000 /vernemq && \
+    mkdir -p /var/lib /var/log && \
     ln -s /vernemq/etc /etc/vernemq && \
     ln -s /vernemq/data /var/lib/vernemq && \
     ln -s /vernemq/log /var/log/vernemq
-
 # Ports
 # 1883  MQTT
 # 8883  MQTT/SSL
