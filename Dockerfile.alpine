@@ -11,7 +11,8 @@ RUN make rel
 
 FROM dhi.io/alpine-base:3.24-dev
 ARG vernemq_version
-RUN apk update && \
+
+RUN apk --no-cache --update --available upgrade && \
     apk add --no-cache ncurses-libs libstdc++ jq curl bash snappy-dev nano && \
     addgroup --gid 10000 vernemq && \
     adduser --uid 10000 -H -D -G vernemq -h /vernemq vernemq && \
