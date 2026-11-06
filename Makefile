@@ -13,4 +13,4 @@ release:
 		--progress plain \
 		--build-arg vernemq_version="$(VERSION)" \
 		-f Dockerfile.alpine \
-		-t $(REGISTRY)/vernemq:$(VERSION)-alpine .
+		-t $(REGISTRY)/vernemq:$(VERSION)-otp29-alpine .

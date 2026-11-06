@@ -1,7 +1,7 @@
 ARG vernemq_version=latest
 
 # Build container - 
-FROM erlang:28-alpine AS builder
+FROM erlang:29.1.2-alpine AS builder
 ARG vernemq_version
 
 RUN apk add --no-cache snappy-dev openssl-dev alpine-sdk bsd-compat-headers bash git
